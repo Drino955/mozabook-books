@@ -1,34 +1,48 @@
-# 📚 MozaBook Udžbenici - Besplatno! 🎓
+# MozaWeb DRM Bypass — Security Research
 
-Dobrodošli na naš GitHub repozitorij! 🚀
+Independent security audit of [MozaWeb](https://hr.mozaweb.com) (Mozaik Education), a digital textbook platform used in Croatian schools.
 
-Nažalost, zbog ograničenja prostora na GitHubu, nismo u mogućnosti učitati sve udžbenike MozaBook izravno ovdje. 😔 **Ali ne brinite!** Imamo savršeno rješenje za vas!
+## Vulnerabilities Discovered
 
-## 📢 Pridružite se našoj Telegram grupi!
+| # | Vulnerability | CWE | Severity |
+|---|---|---|---|
+| 1 | Hardcoded AES key in client JavaScript | [CWE-321](https://cwe.mitre.org/data/definitions/321.html) | **CRITICAL** |
+| 2 | API returns book data without ownership verification | [CWE-862](https://cwe.mitre.org/data/definitions/862.html) | **CRITICAL** |
+| 3 | Predictable Book IDs (IDOR) | [CWE-639](https://cwe.mitre.org/data/definitions/639.html) | HIGH |
+| 4 | Internal path disclosure via `dirWeb` | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | MEDIUM |
+| 5 | All security logic is client-side only | [CWE-602](https://cwe.mitre.org/data/definitions/602.html) | **CRITICAL** |
 
-Svi udžbenici MozaBook su sada dostupni potpuno **besplatno** na našoj Telegram grupi! 🎉
+## TL;DR
 
-🔗 **Link na grupu:** [t.me/mozabooks](https://t.me/mozabooks)
+MozaWeb's DRM relies on a **hardcoded AES key** (`WWxIuw81Bu0xY`) embedded in client-side JavaScript. Combined with an API that serves book metadata for any Book ID regardless of purchase status, this allows automated extraction of all textbook content.
 
-U Telegram grupi, udžbenici su uredno organizirani po kategorijama i razredima, što omogućuje jednostavno pretraživanje i preuzimanje. 🗂️
+```
+Catalog → Scrape all Book IDs
+    ↓
+API /Mblite/api/load → Get dirWeb, startpage, maxpage (no auth check)
+    ↓
+Encrypt image path with hardcoded key → AES(dirWeb + BID + '_' + page + '.jpg')
+    ↓
+GET mbLite/?ct=...&iv=...&s=... → Server decrypts, returns JPG
+```
 
-### 📌 Što nudimo u Telegram grupi?
+## Attack Chain
 
-- **Besplatni pristup** svim MozaBook udžbenicima! 📖
-- Organizirane kategorije za lakše pretraživanje i navigaciju. 🔍
+1. **Scrape catalog** — public endpoint lists all Book IDs in format `HR-{PUBLISHER}-{SUBJECT}{GRADE}-{NUMBER}`
+2. **Enumerate via API** — `POST /hr/Mblite/api/load` with `bid=<any_id>` returns page count and image directory
+3. **Construct & encrypt URLs** — using the hardcoded AES key from client JS
+4. **Download** — server decrypts the URL and returns full-resolution page images. No ownership check, no rate limiting
 
-### 📝 Kako se pridružiti?
+## Status
 
-1. Kliknite na [ovaj link](https://t.me/mozabooks) za pristup našoj Telegram grupi.
-2. Pridružite se grupi i pregledajte dostupne udžbenike.
-3. Preuzmite željene knjige i započnite s učenjem! 📘
+> **⚠️ NOT FIXED** — All vulnerabilities remain exploitable in production as of June 2026.
 
-### 💬 Zašto Telegram grupa?
+Responsible disclosure was attempted before publication.
 
-Koristeći Telegram, možemo dijeliti velike datoteke bez ograničenja prostora koje ima GitHub. Grupa je dizajnirana tako da olakšava navigaciju i omogućava brzo preuzimanje potrebnih udžbenika.
+## Full Write-up
 
+Detailed technical analysis: [Breaking MozaWeb's Client-Side DRM](https://dnikiforov.dev/blog/mozaweb-idor)
 
----
+## Disclaimer
 
-🌟 **Napomena:** Svi udžbenici su podijeljeni isključivo u obrazovne svrhe.
-
+This research was conducted independently for educational purposes. No copyrighted content is distributed through this repository.
